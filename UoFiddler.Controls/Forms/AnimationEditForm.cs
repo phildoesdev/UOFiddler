@@ -19,6 +19,8 @@ using System.Windows.Media.Imaging;
 using Ultima;
 using UoFiddler.Controls.Classes;
 
+using System.Diagnostics;
+
 namespace UoFiddler.Controls.Forms
 {
     public partial class AnimationEditForm : Form
@@ -558,6 +560,7 @@ namespace UoFiddler.Controls.Forms
             }
         }
 
+        
         private void OnClickExtractImages(object sender, EventArgs e)
         {
             if (_fileType == 0)
@@ -590,6 +593,7 @@ namespace UoFiddler.Controls.Forms
             int body;
             int action;
 
+
             if (AnimationListTreeView.SelectedNode.Parent == null)
             {
                 body = (int)AnimationListTreeView.SelectedNode.Tag;
@@ -603,25 +607,48 @@ namespace UoFiddler.Controls.Forms
 
             if (action == -1)
             {
+
+                // Loops through all the animations for this type 
                 for (int a = 0; a < Animations.GetAnimLength(body, _fileType); ++a)
                 {
+                    // No animations exist, so dont try to go further
+                    if (!AnimationEdit.IsActionDefined(_fileType, body, a)) continue;
+
+                    // Loop thru each direction
                     for (int i = 0; i < 5; ++i)
                     {
                         AnimIdx edit = AnimationEdit.GetAnimation(_fileType, body, a, i);
-                        Bitmap[] bits = edit?.GetFrames();
-                        if (bits == null)
+
+
+                        Debug.Write("\n------------------------\n");
+                        foreach (FrameEdit f in edit.Frames)
                         {
-                            continue;
+                            Debug.Write($"Center: [{f.Center}], Width: [{f.Width}], Height: [{f.Height}]\n");
                         }
 
+                        Debug.Write($"\nedit.Frames.Count {edit.Frames.Count}\n");
+
+
+                        // Leaves early if this animation doesnt have this animation and/or directiondirection
+                        Bitmap[] bits = edit.GetFrames();
+                        
+                        // Loop through the bytes and write them to the file
                         for (int j = 0; j < bits.Length; ++j)
                         {
+                            Debug.Write($"Bits [{bits[j]}] \n");
                             if (bits[j] is null)
                             {
                                 continue;
                             }
 
-                            string filename = string.Format("anim{5}_{0}_{1}_{2}_{3}{4}", body, a, i, j, menu.Tag, _fileType);
+                            /*
+                                a == Animation ID. 
+                                    -- 34 for human(P), 12 for Animals(L), 21 for Monsters(H)
+                                i == the current direction
+                                j = frame #?
+                             */
+                            string filename = string.Format("anim{5}_{0}_{1}_{2}_{3}_{6}_{7}{4}", body, a, i, j, menu.Tag, _fileType, edit.Frames[j].Center.X, edit.Frames[j].Center.Y);
+                            Debug.Write($"{filename}\n");
                             string file = Path.Combine(path, filename);
 
                             using (Bitmap bit = new Bitmap(bits[j]))

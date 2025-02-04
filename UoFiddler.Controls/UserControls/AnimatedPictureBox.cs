@@ -208,7 +208,7 @@ namespace UoFiddler.Controls.UserControls
                 {
                     e.Graphics.DrawRectangle(new Pen(Color.Red), new Rectangle(location, frame.Bitmap.Size));
                 }
-            }
+             }
         }
 
         protected override void Dispose(bool disposing)
