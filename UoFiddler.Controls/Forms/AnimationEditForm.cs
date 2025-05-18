@@ -607,7 +607,8 @@ namespace UoFiddler.Controls.Forms
 
             if (action == -1)
             {
-
+                // Keep track of the total frames to make organization easier
+                int fCounter = 0;
                 // Loops through all the animations for this type 
                 for (int a = 0; a < Animations.GetAnimLength(body, _fileType); ++a)
                 {
@@ -618,15 +619,16 @@ namespace UoFiddler.Controls.Forms
                     for (int i = 0; i < 5; ++i)
                     {
                         AnimIdx edit = AnimationEdit.GetAnimation(_fileType, body, a, i);
+                        if (edit.Frames is null) continue;
 
 
                         Debug.Write("\n------------------------\n");
-                        foreach (FrameEdit f in edit.Frames)
-                        {
-                            Debug.Write($"Center: [{f.Center}], Width: [{f.Width}], Height: [{f.Height}]\n");
-                        }
+                        //foreach (FrameEdit f in edit.Frames)
+                        //{
+                        //    Debug.Write($"Center: [{f.Center}], Width: [{f.Width}], Height: [{f.Height}]\n");
+                        //}
 
-                        Debug.Write($"\nedit.Frames.Count {edit.Frames.Count}\n");
+                        // Debug.Write($"\nedit.Frames.Count {edit.Frames.Count}\n");
 
 
                         // Leaves early if this animation doesnt have this animation and/or directiondirection
@@ -635,20 +637,37 @@ namespace UoFiddler.Controls.Forms
                         // Loop through the bytes and write them to the file
                         for (int j = 0; j < bits.Length; ++j)
                         {
-                            Debug.Write($"Bits [{bits[j]}] \n");
+                            //Debug.Write($"Bits [{bits[j]}] \n");
                             if (bits[j] is null)
                             {
-                                continue;
+                                bits[j] = new Bitmap(1, 1);
+                                //continue;
                             }
 
-                            /*
+                            /* ****************************************
                                 a == Animation ID. 
                                     -- 34 for human(P), 12 for Animals(L), 21 for Monsters(H)
                                 i == the current direction
                                 j = frame #?
+
+                                (Maybe give user distinct options for naming convention, and the one below is one of them)
+                                
+                                {frameNumber}_{bodyid}_{animationID}_{direction}_{offset_x}_{offset_y}
+                                    frame number is an incremental counter, ordering sprites in the sprite sheet from 0
+                                    bodyID is unused by us, but useful for organization w/in a folder
+                                    animation ID is a counter from 0 for distinct animations, must be included to output godot summary file
+                                    direction ID is a counter from 0 for distinct directions, must be included to output godot summary file
+                                    offset X from the bottom left corner, can be used to draw the sprite sheet w/ correct offset, primarily intended for our godot summary file. Req'd to output godot summary file
+                                        (we mult by -1 to turn from 'center point' to 'offset'
+                                    offset Y from the bottom left corner, can be used to draw the sprite sheet w/ correct offset, primarily intended for our godot summary file. Req'd to output godot summary file
+                                        (we mult by -1 to turn from 'center point' to 'offset'
+                                    
                              */
-                            string filename = string.Format("anim{5}_{0}_{1}_{2}_{3}_{6}_{7}{4}", body, a, i, j, menu.Tag, _fileType, edit.Frames[j].Center.X, edit.Frames[j].Center.Y);
-                            Debug.Write($"{filename}\n");
+
+                            //string filename = string.Format("{8}_{0}_{1}_{2}_{3}_{6}_{7}{4}", body, a, i, j, menu.Tag, _fileType, (-1) * edit.Frames[j].Center.X, (-1) * edit.Frames[j].Center.Y, fCounter++);
+                            string filename = string.Format("{0}_{1}_{2}_{3}_{4}_{5}{6}", fCounter++, body, a, i, edit.Frames[j].Center.X, edit.Frames[j].Center.Y, menu.Tag);
+
+                            //Debug.Write($"CenterX: {edit.Frames[j].Center.X}, width:{edit.Frames[j].Width}\n");
                             string file = Path.Combine(path, filename);
 
                             using (Bitmap bit = new Bitmap(bits[j]))

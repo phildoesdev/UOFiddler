@@ -1,10 +1,13 @@
 using System;
+using System.Diagnostics.Metrics;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using Ultima.Helpers;
+using System.Linq;
 
 namespace Ultima
 {
@@ -122,13 +125,20 @@ namespace Ultima
         /// <param name="fileName">Output file name</param>
         public static void ExportHueList(string fileName)
         {
-            var sb = new StringBuilder(90_0000);
+            var sb = new StringBuilder();
 
+            int hueID = 0;
+            sb.Append("[");
             foreach (var hue in List)
             {
-                sb.Append("0x").AppendFormat("{0:X}", hue.Index).Append(' ').AppendLine(hue.Name);
-            }
+                sb.Append("{ ").Append($"\"HueID\": {hueID++}, \"ColorGradient\": [{string.Join(",", hue.Colors.ToArray())}]").Append(" }");
 
+                if (hueID < List.Length)
+                {
+                    sb.Append(",");
+                }
+            }
+            sb.Append("]");
             File.WriteAllText(fileName, sb.ToString());
         }
 
@@ -293,7 +303,6 @@ namespace Ultima
                 ((hue & 0x3e0) >> 5) * scale,
                 (hue & 0x1f) * scale);
         }
-
         private static readonly byte[] _stringBuffer = new byte[20];
 
         public Hue(int index, BinaryReader bin)

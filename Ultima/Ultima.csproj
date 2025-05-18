@@ -8,6 +8,7 @@
 		<AssemblyVersion>4.3.2</AssemblyVersion>
 		<FileVersion>4.3.2</FileVersion>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<Configurations>Debug;Release;test</Configurations>
 	</PropertyGroup>
 	<PropertyGroup>
 		<EnableNETAnalyzers>true</EnableNETAnalyzers>
@@ -16,6 +17,11 @@
 		<OutputPath>bin\$(Configuration)\</OutputPath>
 		<FileAlignment>4096</FileAlignment>
 		<DebugType>portable</DebugType>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='test|AnyCPU'">
+	  <OutputPath>bin\$(Configuration)\</OutputPath>
+	  <FileAlignment>4096</FileAlignment>
+	  <DebugType>portable</DebugType>
 	</PropertyGroup>
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
 		<OutputPath>bin\$(Configuration)\</OutputPath>

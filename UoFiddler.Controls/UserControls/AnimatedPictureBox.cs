@@ -56,7 +56,12 @@ namespace UoFiddler.Controls.UserControls
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public AnimatedFrame FirstFrame
         {
-            get => _frames?[0];
+            get
+            {
+                if (_frames is null || _frames.Count == 0) return null;
+
+                return _frames?[0];
+            }
         }
 
         public event EventHandler FrameChanged;
@@ -195,7 +200,7 @@ namespace UoFiddler.Controls.UserControls
         {
             base.OnPaint(e);
             AnimatedFrame frame = _frameIndex < _frames?.Count ? _frames[_frameIndex] : null;
-            if (frame != null)
+            if (frame != null && frame.Bitmap != null)
             {
                 var location = new Point(
                     _drawCenter.X - frame.Center.X + (Width - _animationSize.Width) / 2 + _draggedOffset.X,

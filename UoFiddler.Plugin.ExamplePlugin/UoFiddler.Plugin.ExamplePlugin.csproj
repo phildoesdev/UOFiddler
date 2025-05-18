@@ -7,6 +7,7 @@
 		<AssemblyTitle>FiddlerPlugin</AssemblyTitle>
 		<Product>FiddlerPlugin</Product>
 		<Copyright>Copyright © 2024</Copyright>
+		<Configurations>Debug;Release;test</Configurations>
 	</PropertyGroup>
 	<PropertyGroup>
 		<EnableNETAnalyzers>true</EnableNETAnalyzers>
@@ -14,6 +15,10 @@
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
 		<DebugType>portable</DebugType>
 		<OutputPath>..\UoFiddler\bin\$(Configuration)\plugins\</OutputPath>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='test|AnyCPU'">
+	  <DebugType>portable</DebugType>
+	  <OutputPath>..\UoFiddler\bin\$(Configuration)\plugins\</OutputPath>
 	</PropertyGroup>
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
 		<DebugType>none</DebugType>

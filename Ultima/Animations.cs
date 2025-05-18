@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -127,9 +128,7 @@ namespace Ultima
                     }
                 }
             }
-
             memoryStream.Close();
-
             return frames;
         }
 
@@ -578,7 +577,6 @@ namespace Ultima
                         *cur-- = palette[bin.ReadByte()];
                     }
                 }
-
                 xCenter = width - xCenter;
             }
 

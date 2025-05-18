@@ -12,11 +12,13 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using System.Windows.Forms.VisualStyles;
 using System.Xml;
 using Ultima;
 using UoFiddler.Controls.Classes;
@@ -604,6 +606,7 @@ namespace UoFiddler.Controls.UserControls
             }
 
             Bitmap bmp = MainPictureBox.Frames[(int)e.Item.Tag].Bitmap;
+            if (bmp is null) return;
             int width = bmp.Width;
             int height = bmp.Height;
 
@@ -653,6 +656,71 @@ namespace UoFiddler.Controls.UserControls
             }
 
             LoadListView();
+        }
+
+        private void OnClickExtractAnimations(object sender, EventArgs e)
+        {            
+
+            ToolStripMenuItem menu = (ToolStripMenuItem)sender;
+
+            ImageFormat format;
+            format = ImageFormat.Png;
+            string path = Options.OutputPath;
+
+            int body;
+            int action;
+            int hue = 0;
+
+            body = _currentSelect;
+            action = -1;
+
+            // _{...}_{}_
+            int _fileType = BodyConverter.Convert(ref body);
+
+            Debug.Print($"body: {body} - _currentSelect: {_currentSelect} - _fileType: {_fileType}");
+            if (action == -1)
+            {
+                // Keep track of the total frames to make organization easier
+                int fCounter = 0;
+                // Loops through all the animations for this type 
+                for (int a = 0; a < Animations.GetAnimLength(_currentSelect, _fileType); ++a)
+                {
+                    // No animations exist, so dont try to go further
+                    
+                    // Loop thru each direction
+                    for (int i = 0; i < 5; ++i)
+                    {
+                        if (!Animations.IsActionDefined(_currentSelect, a, i)) continue;
+
+                        // Grab the frames for our thing
+                        List<AnimatedFrame> actionFrames = Animations.GetAnimation(_currentSelect, a, i, ref hue, true, false)
+                            ?.Select(animation => new AnimatedFrame(animation.Bitmap, animation.Center)).ToList();
+
+                        if (actionFrames.Count == 0) continue;
+
+                        // Loop through the frames and create files for them
+                        for (int j = 0; j < actionFrames.Count; j++)
+                        {
+                            // Output some file even if there is not bitmap so that we count the frames correctly and stuff like this
+                            if (actionFrames[j].Bitmap is null)
+                            {
+                                actionFrames[j].Bitmap = new Bitmap(1, 1);
+                            }
+
+                            //string filename = string.Format("{8}_{0}_{1}_{2}_{3}_{6}_{7}{4}", body, a, i, j, menu.Tag, _fileType, (-1) * edit.Frames[j].Center.X, (-1) * edit.Frames[j].Center.Y, fCounter++);
+                            string filename = string.Format("{0}_{1}_{2}_{3}_{4}_{5}{6}", fCounter++, _currentSelect, a, i, actionFrames[j].Center.X, actionFrames[j].Center.Y, ".png");
+
+                            //Debug.Write($"CenterX: {edit.Frames[j].Center.X}, width:{edit.Frames[j].Width}\n");
+                            string file = Path.Combine(path, filename);
+
+                            using (actionFrames[j].Bitmap)
+                            {
+                                actionFrames[j].Bitmap.Save(file, format);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         private void OnClickRemove(object sender, EventArgs e)
@@ -840,6 +908,8 @@ namespace UoFiddler.Controls.UserControls
 
             string fileExtension = Utils.GetFileExtensionFor(imageFormat);
             string fileName = Path.Combine(Options.OutputPath, $"{what} {_currentSelect}");
+            // _{..}_{...}__{
+            // Animations.GetAnimation(_currentSelect,_ACTION_LOOP_,_DIRECTION_LOOP_, 0, true, false);
 
             for (int i = 0; i < MainPictureBox.Frames?.Count; ++i)
             {

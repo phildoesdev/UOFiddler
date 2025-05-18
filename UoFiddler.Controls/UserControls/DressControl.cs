@@ -12,6 +12,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -435,9 +436,14 @@ namespace UoFiddler.Controls.UserControls
                 }
                 if (background != null)
                 {
+
                     draw.X = _drawPointAni.X - background[0].Center.X;
                     draw.Y = _drawPointAni.Y - background[0].Center.Y - background[0].Bitmap.Height;
                     graphPic.DrawImage(background[0].Bitmap, draw);
+                    Debug.Print($"==========================");
+                    Debug.Print($"draw.X: {draw.X} -- background[0].Center.X: {background[0].Center.X} -- background[0].Height: {background[0].Bitmap.Height}");
+                    Debug.Print($"draw.Y: {draw.Y} -- background[0].Center.Y: {background[0].Center.Y} -- background[0].Width: {background[0].Bitmap.Width}");
+                    Debug.Print($"==========================");
                 }
                 int[] animOrder = _drawOrder2;
                 if (((_facing - 3) & 7) >= 4 && ((_facing - 3) & 7) <= 6)
@@ -486,6 +492,10 @@ namespace UoFiddler.Controls.UserControls
                     draw.X = _drawPointAni.X - frames[0].Center.X;
                     draw.Y = _drawPointAni.Y - frames[0].Center.Y - frames[0].Bitmap.Height;
 
+                    Debug.Print($"==========================");
+                    Debug.Print($"draw.X: {draw.X} -- frames[0].Center.X: {frames[0].Center.X} -- frames[0].Height: {frames[0].Bitmap.Height}");
+                    Debug.Print($"draw.Y: {draw.Y} -- frames[0].Center.Y: {frames[0].Center.Y} -- frames[0].Width: {frames[0].Bitmap.Width}");
+                    Debug.Print($"==========================");
                     graphPic.DrawImage(bmp, draw);
                 }
             }
