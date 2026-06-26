@@ -39,6 +39,8 @@ namespace Ultima
         public MultiTileEntry[] SortedTiles { get; }
         public int Surface { get; private set; }
 
+        public static HashSet<ushort> DynamicItemIds { get; set; }
+
         public struct MultiTileEntry
         {
             public ushort ItemId;
@@ -194,7 +196,6 @@ namespace Ultima
                 }
             }
             ConvertList();
-            reader.Close();
         }
 
         public MultiComponentList(string fileName, Multis.ImportType type)
@@ -444,10 +445,17 @@ namespace Ultima
                                 {
                                     if (tempItem.ItemId != 0xFFFF)
                                     {
+                                        if (DynamicItemIds != null && DynamicItemIds.Contains(tempItem.ItemId))
+                                        {
+                                            tempItem.Flags = 0;
+                                        }
+
                                         SortedTiles[itemCount] = tempItem;
                                         ++itemCount;
                                     }
+
                                     tempItem.ItemId = 0xFFFF;
+                                    tempItem.Flags = 1;
                                 }
                                 else if (line.StartsWith("ID"))
                                 {
@@ -496,11 +504,37 @@ namespace Ultima
                                     }
                                 }
                             }
+
                             if (tempItem.ItemId != 0xFFFF)
                             {
+                                if (DynamicItemIds?.Contains(tempItem.ItemId) == true)
+                                {
+                                    tempItem.Flags = 0;
+                                }
+
                                 SortedTiles[itemCount] = tempItem;
                             }
                         }
+
+                        // WSC files from a live UO world use absolute world coordinates.
+                        // Tool-generated WSC files may already have relative offsets (possibly negative).
+                        // Heuristic: if both min coords are positive AND each exceeds the multi's own
+                        // extent, the file contains world coordinates and must be normalized.
+                        int extentX = _max.X - _min.X;
+                        int extentY = _max.Y - _min.Y;
+                        if (_min.X > 0 && _min.Y > 0 && _min.X > extentX && _min.Y > extentY)
+                        {
+                            for (int i = 0; i < SortedTiles.Length; ++i)
+                            {
+                                SortedTiles[i].OffsetX = (short)(SortedTiles[i].OffsetX - _min.X);
+                                SortedTiles[i].OffsetY = (short)(SortedTiles[i].OffsetY - _min.Y);
+                            }
+                            _max.X -= _min.X;
+                            _max.Y -= _min.Y;
+                            _min.X = 0;
+                            _min.Y = 0;
+                        }
+
                         break;
                     }
                 case Multis.ImportType.CSV: 

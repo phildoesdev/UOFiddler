@@ -47,6 +47,7 @@ namespace UoFiddler.Controls.UserControls
             LandTilesContextMenuStrip = new System.Windows.Forms.ContextMenuStrip(components);
             showFreeSlotsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             findNextFreeSlotToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            changeBackgroundColorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
             exportImageToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             asBmpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -56,10 +57,12 @@ namespace UoFiddler.Controls.UserControls
             toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             selectInTileDataTabToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             selectInRadarColorTabToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            selectInTexturesTabToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             replaceToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             replaceStartingFromToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ReplaceStartingFromTb = new System.Windows.Forms.ToolStripTextBox();
+            replaceFromFolderToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             insertAtToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             InsertText = new System.Windows.Forms.ToolStripTextBox();
             removeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -86,6 +89,7 @@ namespace UoFiddler.Controls.UserControls
             FlagsLabel = new System.Windows.Forms.ToolStripStatusLabel();
             panel = new System.Windows.Forms.Panel();
             LandTilesTileView = new TileViewControl();
+            colorDialog = new System.Windows.Forms.ColorDialog();
             LandTilesContextMenuStrip.SuspendLayout();
             LandTilesToolStrip.SuspendLayout();
             StatusStrip.SuspendLayout();
@@ -94,9 +98,10 @@ namespace UoFiddler.Controls.UserControls
             // 
             // LandTilesContextMenuStrip
             // 
-            LandTilesContextMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { showFreeSlotsToolStripMenuItem, findNextFreeSlotToolStripMenuItem, toolStripSeparator6, exportImageToolStripMenuItem, toolStripSeparator3, selectInTileDataTabToolStripMenuItem, selectInRadarColorTabToolStripMenuItem, toolStripSeparator2, replaceToolStripMenuItem, replaceStartingFromToolStripMenuItem, insertAtToolStripMenuItem, removeToolStripMenuItem, toolStripSeparator1, saveToolStripMenuItem });
+            LandTilesContextMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { showFreeSlotsToolStripMenuItem, findNextFreeSlotToolStripMenuItem, changeBackgroundColorToolStripMenuItem, toolStripSeparator6, exportImageToolStripMenuItem, toolStripSeparator3, selectInTileDataTabToolStripMenuItem, selectInRadarColorTabToolStripMenuItem, selectInTexturesTabToolStripMenuItem, toolStripSeparator2, replaceToolStripMenuItem, replaceStartingFromToolStripMenuItem, replaceFromFolderToolStripMenuItem, insertAtToolStripMenuItem, removeToolStripMenuItem, toolStripSeparator1, saveToolStripMenuItem });
             LandTilesContextMenuStrip.Name = "contextMenuStrip1";
-            LandTilesContextMenuStrip.Size = new System.Drawing.Size(201, 248);
+            LandTilesContextMenuStrip.Size = new System.Drawing.Size(201, 270);
+            LandTilesContextMenuStrip.Opening += LandTilesContextMenuStrip_Opening;
             // 
             // showFreeSlotsToolStripMenuItem
             // 
@@ -112,7 +117,14 @@ namespace UoFiddler.Controls.UserControls
             findNextFreeSlotToolStripMenuItem.Size = new System.Drawing.Size(200, 22);
             findNextFreeSlotToolStripMenuItem.Text = "Find Next Free Slot";
             findNextFreeSlotToolStripMenuItem.Click += OnClickFindFree;
-            // 
+            //
+            // changeBackgroundColorToolStripMenuItem
+            //
+            changeBackgroundColorToolStripMenuItem.Name = "changeBackgroundColorToolStripMenuItem";
+            changeBackgroundColorToolStripMenuItem.Size = new System.Drawing.Size(200, 22);
+            changeBackgroundColorToolStripMenuItem.Text = "Change background color";
+            changeBackgroundColorToolStripMenuItem.Click += ChangeBackgroundColorToolStripMenuItem_Click;
+            //
             // toolStripSeparator6
             // 
             toolStripSeparator6.Name = "toolStripSeparator6";
@@ -172,8 +184,15 @@ namespace UoFiddler.Controls.UserControls
             selectInRadarColorTabToolStripMenuItem.Text = "Select in RadarColor tab";
             selectInRadarColorTabToolStripMenuItem.Click += OnClickSelectRadarCol;
             // 
-            // toolStripSeparator2
+            // selectInTexturesTabToolStripMenuItem
             // 
+            selectInTexturesTabToolStripMenuItem.Name = "selectInTexturesTabToolStripMenuItem";
+            selectInTexturesTabToolStripMenuItem.Size = new System.Drawing.Size(200, 22);
+            selectInTexturesTabToolStripMenuItem.Text = "Select in Textures tab";
+            selectInTexturesTabToolStripMenuItem.Click += OnClickSelectTexture;
+            // 
+            // toolStripSeparator2
+            //
             toolStripSeparator2.Name = "toolStripSeparator2";
             toolStripSeparator2.Size = new System.Drawing.Size(197, 6);
             // 
@@ -196,7 +215,14 @@ namespace UoFiddler.Controls.UserControls
             ReplaceStartingFromTb.Name = "ReplaceStartingFromTb";
             ReplaceStartingFromTb.Size = new System.Drawing.Size(100, 23);
             ReplaceStartingFromTb.KeyDown += ReplaceStartingFromTb_KeyDown;
-            // 
+            //
+            // replaceFromFolderToolStripMenuItem
+            //
+            replaceFromFolderToolStripMenuItem.Name = "replaceFromFolderToolStripMenuItem";
+            replaceFromFolderToolStripMenuItem.Size = new System.Drawing.Size(200, 22);
+            replaceFromFolderToolStripMenuItem.Text = "Replace from Folder...";
+            replaceFromFolderToolStripMenuItem.Click += OnClickReplaceFromFolder;
+            //
             // insertAtToolStripMenuItem
             // 
             insertAtToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] { InsertText });
@@ -391,7 +417,7 @@ namespace UoFiddler.Controls.UserControls
             LandTilesTileView.FocusIndex = -1;
             LandTilesTileView.Location = new System.Drawing.Point(0, 0);
             LandTilesTileView.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            LandTilesTileView.MultiSelect = false;
+            LandTilesTileView.MultiSelect = true;
             LandTilesTileView.Name = "LandTilesTileView";
             LandTilesTileView.Size = new System.Drawing.Size(716, 354);
             LandTilesTileView.TabIndex = 9;
@@ -449,6 +475,7 @@ namespace UoFiddler.Controls.UserControls
         private System.Windows.Forms.ToolStripMenuItem replaceToolStripMenuItem;
         private System.Windows.Forms.ToolStripButton SaveButton;
         private System.Windows.Forms.ToolStripMenuItem selectInRadarColorTabToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem selectInTexturesTabToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem selectInTileDataTabToolStripMenuItem;
         private System.Windows.Forms.ToolStrip LandTilesToolStrip;
         private System.Windows.Forms.ToolStripDropDownButton MiscToolStripDropDownButton;
@@ -457,6 +484,7 @@ namespace UoFiddler.Controls.UserControls
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator4;
         private System.Windows.Forms.ToolStripMenuItem replaceStartingFromToolStripMenuItem;
         private System.Windows.Forms.ToolStripTextBox ReplaceStartingFromTb;
+        private System.Windows.Forms.ToolStripMenuItem replaceFromFolderToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem showFreeSlotsToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator6;
         private System.Windows.Forms.StatusStrip StatusStrip;
@@ -473,5 +501,7 @@ namespace UoFiddler.Controls.UserControls
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator5;
         private System.Windows.Forms.Panel panel;
         private TileViewControl LandTilesTileView;
+        private System.Windows.Forms.ToolStripMenuItem changeBackgroundColorToolStripMenuItem;
+        private System.Windows.Forms.ColorDialog colorDialog;
     }
 }

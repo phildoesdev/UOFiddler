@@ -1,7 +1,21 @@
-﻿using System.Drawing;
+/***************************************************************************
+ *
+ * $Author: Turley
+ *
+ * "THE BEER-WARE LICENSE"
+ * As long as you retain this notice you can do whatever you want with
+ * this stuff. If we meet some day, and you think this stuff is worth it,
+ * you can buy me a beer in return.
+ *
+ ***************************************************************************/
+
+using System;
+using System.Buffers;
+using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using Ultima;
+using Ultima.Helpers;
 
 namespace UoFiddler.Plugin.Compare.Classes
 {
@@ -14,18 +28,23 @@ namespace UoFiddler.Plugin.Compare.Classes
 
         public static void SetFileIndex(string idxPath, string mulPath)
         {
-            _fileIndex = new SecondFileIndex(idxPath, mulPath, 0x10000);
+            SetFileIndex(idxPath, mulPath, null);
+        }
+
+        public static void SetFileIndex(string idxPath, string mulPath, string uopPath)
+        {
+            _fileIndex = new SecondFileIndex(idxPath, mulPath, uopPath, 0xFFFF, ".tga", -1, true);
             _cache = new Bitmap[0x10000];
         }
 
-        /// <summary>
-        /// Tests if index is defined
-        /// </summary>
-        /// <param name="index"></param>
-        /// <returns></returns>
         public static bool IsValidIndex(int index)
         {
             if (_fileIndex == null)
+            {
+                return false;
+            }
+
+            if (index < 0 || index >= _cache.Length)
             {
                 return false;
             }
@@ -35,19 +54,26 @@ namespace UoFiddler.Plugin.Compare.Classes
                 return true;
             }
 
-            if (!_fileIndex.Valid(index, out _, out int extra))
+            SecondIEntry entry = null;
+            if (_fileIndex.Seek(index, ref entry) == null || entry == null)
             {
                 return false;
             }
 
-            if (extra == -1)
+            // Compressed UOP entries don't carry width/height in the idx — the
+            // dimensions live inside the decompressed payload. Defer the check.
+            if (entry.Flag >= SecondCompressionFlag.Zlib)
+            {
+                return entry.Length > 0;
+            }
+
+            if (entry.Extra == -1)
             {
                 return false;
             }
 
-            int width = (extra >> 16) & 0xFFFF;
-            int height = extra & 0xFFFF;
-
+            int width = entry.Extra1;
+            int height = entry.Extra2;
             return width > 0 && height > 0;
         }
 
@@ -55,68 +81,68 @@ namespace UoFiddler.Plugin.Compare.Classes
         {
             width = -1;
             height = -1;
-            Stream stream = _fileIndex.Seek(index, out int length, out int extra);
-            if (stream == null)
+
+            if (_fileIndex == null)
             {
                 return null;
             }
 
-            if (extra == -1)
+            SecondIEntry entry = null;
+            Stream stream = _fileIndex.Seek(index, ref entry);
+            if (stream == null || entry == null)
             {
                 return null;
             }
 
-            width = (extra >> 16) & 0xFFFF;
-            height = extra & 0xFFFF;
-            if (width <= 0 || height <= 0)
+            int payloadLength = ReadEntryPayload(stream, entry, out width, out height);
+            if (payloadLength <= 0 || width <= 0 || height <= 0)
             {
                 return null;
             }
 
-            byte[] buffer = new byte[length];
-            stream.Read(buffer, 0, length);
-            return buffer;
+            // Hand back an exact-sized copy so callers can hash/compare safely.
+            byte[] result = new byte[payloadLength];
+            System.Buffer.BlockCopy(_streamBuffer, 0, result, 0, payloadLength);
+            return result;
         }
 
-        /// <summary>
-        /// Returns Bitmap of index and if verdata patched
-        /// </summary>
-        /// <param name="index"></param>
-        /// <returns></returns>
         public static unsafe Bitmap GetGump(int index)
         {
+            if (_fileIndex == null)
+            {
+                return null;
+            }
+
+            if (index < 0 || index >= _cache.Length)
+            {
+                return null;
+            }
+
             if (_cache[index] != null)
             {
                 return _cache[index];
             }
 
-            Stream stream = _fileIndex.Seek(index, out int length, out int extra);
-            if (stream == null)
+            SecondIEntry entry = null;
+            Stream stream = _fileIndex.Seek(index, ref entry);
+            if (stream == null || entry == null)
             {
                 return null;
             }
 
-            if (extra == -1)
+            int payloadLength = ReadEntryPayload(stream, entry, out int width, out int height);
+            if (payloadLength <= 0 || width <= 0 || height <= 0)
             {
                 return null;
             }
-
-            int width = (extra >> 16) & 0xFFFF;
-            int height = extra & 0xFFFF;
 
             Bitmap bmp = new Bitmap(width, height, PixelFormat.Format16bppArgb1555);
             BitmapData bd = bmp.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.WriteOnly, PixelFormat.Format16bppArgb1555);
-            if (_streamBuffer == null || _streamBuffer.Length < length)
-            {
-                _streamBuffer = new byte[length];
-            }
 
-            stream.Read(_streamBuffer, 0, length);
-
-            fixed (byte* data = _streamBuffer)
+            fixed (byte* pData = _streamBuffer)
             {
-                int* lookup = (int*)data;
-                ushort* dat = (ushort*)data;
+                int* lookup = (int*)pData;
+                ushort* dat = (ushort*)pData;
 
                 ushort* line = (ushort*)bd.Scan0;
                 int delta = bd.Stride >> 1;
@@ -150,6 +176,101 @@ namespace UoFiddler.Plugin.Compare.Classes
             bmp.UnlockBits(bd);
 
             return Files.CacheData ? _cache[index] = bmp : bmp;
+        }
+
+        /// Reads the pixel-RLE payload for a gump entry into <see cref="_streamBuffer"/>,
+        /// transparently handling uncompressed MUL/UOP and zlib/Mythic-compressed UOP layouts.
+        /// Returns the number of valid bytes at the start of <see cref="_streamBuffer"/>.
+        private static int ReadEntryPayload(Stream stream, SecondIEntry entry, out int width, out int height)
+        {
+            int length = entry.Length;
+            if (length <= 0)
+            {
+                width = height = -1;
+                return 0;
+            }
+
+            if (_streamBuffer == null || _streamBuffer.Length < length)
+            {
+                _streamBuffer = new byte[length];
+            }
+
+            stream.ReadExactly(_streamBuffer, 0, length);
+
+            if (entry.Flag >= SecondCompressionFlag.Zlib)
+            {
+                int decSize = entry.DecompressedLength;
+                if (decSize <= 8)
+                {
+                    width = height = -1;
+                    return 0;
+                }
+
+                byte[] zlibBuf = ArrayPool<byte>.Shared.Rent(decSize);
+                byte[] mythicBuf = null;
+                try
+                {
+                    if (!UopUtils.TryDecompressInto(_streamBuffer, 0, length, zlibBuf, out int zlibLen))
+                    {
+                        width = height = -1;
+                        return 0;
+                    }
+
+                    byte[] payload;
+                    int payloadLength;
+
+                    if (entry.Flag == SecondCompressionFlag.Mythic)
+                    {
+                        uint mythicLen = MythicDecompress.PeekDecompressedLength(zlibBuf.AsSpan(0, zlibLen));
+                        if (mythicLen <= 8 || mythicLen > int.MaxValue)
+                        {
+                            width = height = -1;
+                            return 0;
+                        }
+
+                        mythicBuf = ArrayPool<byte>.Shared.Rent((int)mythicLen);
+                        if (!MythicDecompress.TryDecompress(
+                                zlibBuf.AsSpan(0, zlibLen), mythicBuf.AsSpan(0, (int)mythicLen), out _))
+                        {
+                            width = height = -1;
+                            return 0;
+                        }
+
+                        payload = mythicBuf;
+                        payloadLength = (int)mythicLen;
+                    }
+                    else
+                    {
+                        payload = zlibBuf;
+                        payloadLength = zlibLen;
+                    }
+
+                    width = (payload[3] << 24) | (payload[2] << 16) | (payload[1] << 8) | payload[0];
+                    height = (payload[7] << 24) | (payload[6] << 16) | (payload[5] << 8) | payload[4];
+                    entry.Extra1 = width;
+                    entry.Extra2 = height;
+
+                    int rleLen = payloadLength - 8;
+                    if (_streamBuffer.Length < rleLen)
+                    {
+                        _streamBuffer = new byte[rleLen];
+                    }
+                    System.Buffer.BlockCopy(payload, 8, _streamBuffer, 0, rleLen);
+                    return rleLen;
+                }
+                finally
+                {
+                    if (mythicBuf != null)
+                    {
+                        ArrayPool<byte>.Shared.Return(mythicBuf);
+                    }
+                    ArrayPool<byte>.Shared.Return(zlibBuf);
+                }
+            }
+
+            width = entry.Extra1;
+            height = entry.Extra2;
+            return length;
         }
     }
 }

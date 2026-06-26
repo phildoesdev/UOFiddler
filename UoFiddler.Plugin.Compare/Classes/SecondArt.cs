@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using Ultima;
@@ -13,10 +14,18 @@ namespace UoFiddler.Plugin.Compare.Classes
         private static byte[] _streamBuffer;
         private static byte[] _validBuffer;
 
+        internal static event Action FileIndexChanged;
+
         public static void SetFileIndex(string idxPath, string mulPath)
         {
-            _fileIndex = new SecondFileIndex(idxPath, mulPath, 0x14000);
+            SetFileIndex(idxPath, mulPath, null);
+        }
+
+        public static void SetFileIndex(string idxPath, string mulPath, string uopPath)
+        {
+            _fileIndex = new SecondFileIndex(idxPath, mulPath, uopPath, 0x14000, ".tga", 0x13FDC, false);
             _cache = new Bitmap[0x14000];
+            FileIndexChanged?.Invoke();
         }
 
         public static int GetMaxItemId()
@@ -58,6 +67,11 @@ namespace UoFiddler.Plugin.Compare.Classes
             return (int)(_fileIndex.IdxLength / 12);
         }
 
+        public static bool IsUOAHS()
+        {
+            return GetIdxLength() >= 0x13FDC;
+        }
+
         public static bool IsValidStatic(int index)
         {
             index = GetLegalItemId(index);
@@ -81,7 +95,7 @@ namespace UoFiddler.Plugin.Compare.Classes
             }
 
             stream.Seek(4, SeekOrigin.Current);
-            stream.Read(_validBuffer, 0, 4);
+            stream.ReadExactly(_validBuffer, 0, 4);
 
             short width = (short)(_validBuffer[0] | (_validBuffer[1] << 8));
             short height = (short)(_validBuffer[2] | (_validBuffer[3] << 8));
@@ -140,7 +154,7 @@ namespace UoFiddler.Plugin.Compare.Classes
                 _streamBuffer = new byte[length];
             }
 
-            stream.Read(_streamBuffer, 0, length);
+            stream.ReadExactly(_streamBuffer, 0, length);
             stream.Close();
 
             fixed (byte* data = _streamBuffer)
@@ -255,7 +269,7 @@ namespace UoFiddler.Plugin.Compare.Classes
                 _streamBuffer = new byte[length];
             }
 
-            stream.Read(_streamBuffer, 0, length);
+            stream.ReadExactly(_streamBuffer, 0, length);
             stream.Close();
             fixed (byte* binData = _streamBuffer)
             {
