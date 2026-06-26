@@ -15,6 +15,7 @@ using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using Ultima;
+using UoFiddler.Classes;
 using UoFiddler.Controls.Classes;
 
 namespace UoFiddler.Forms
@@ -32,6 +33,11 @@ namespace UoFiddler.Forms
             Action updateMapTabAction)
         {
             InitializeComponent();
+
+            radioExportFilenameHex.Checked = AppSettings.ExportFilenameInHex;
+            radioExportFilenameDec.Checked = !AppSettings.ExportFilenameInHex;
+            checkBoxExportFilenameDecPad.Checked = AppSettings.ExportFilenameDecimalPadded;
+            checkBoxExportFilenameDecPad.Enabled = !AppSettings.ExportFilenameInHex;
 
             Icon = Options.GetFiddlerIcon();
 
@@ -62,10 +68,11 @@ namespace UoFiddler.Forms
                 .Where(x => x.PropertyType == typeof(Color))
                 .Select(x => x.GetValue(null)).ToList();
 
-            checkBoxOverrideBackgroundColorFromTile.Checked = Options.OverrideBackgroundColorFromTile;
             checkboxRemoveTileBorder.Checked = Options.RemoveTileBorder;
 
             TileSelectionColorComboBox.SelectedItem = Options.TileSelectionColor;
+
+            PreviewBackgroundColorButton.BackColor = Options.PreviewBackgroundColor;
 
             checkBoxCacheData.Checked = Files.CacheData;
             checkBoxNewMapSize.Checked = Map.Felucca.Width == 7168;
@@ -83,7 +90,6 @@ namespace UoFiddler.Forms
             cmdtext.Text = Options.MapCmd;
             argstext.Text = Options.MapArgs;
             textBoxOutputPath.Text = Options.OutputPath;
-            checkBoxNewClilocFormat.Checked = Options.NewClilocFormat;
         }
 
         private void OnClickApply(object sender, EventArgs e)
@@ -128,11 +134,6 @@ namespace UoFiddler.Forms
                 _updateItemsTabAction();
             }
 
-            if (checkBoxNewClilocFormat.Checked != Options.NewClilocFormat)
-            {
-                Options.NewClilocFormat = checkBoxNewClilocFormat.Checked;
-            }
-
             if (checkBoxItemClip.Checked != Options.ArtItemClip)
             {
                 Options.ArtItemClip = checkBoxItemClip.Checked;
@@ -154,18 +155,17 @@ namespace UoFiddler.Forms
                 _updateAllTileViewsAction();
             }
 
-            if (checkBoxOverrideBackgroundColorFromTile.Checked != Options.OverrideBackgroundColorFromTile)
-            {
-                Options.OverrideBackgroundColorFromTile = checkBoxOverrideBackgroundColorFromTile.Checked;
-
-                _updateAllTileViewsAction();
-            }
-
             if (checkboxRemoveTileBorder.Checked != Options.RemoveTileBorder)
             {
                 Options.RemoveTileBorder = checkboxRemoveTileBorder.Checked;
 
                 _updateAllTileViewsAction();
+            }
+
+            if (PreviewBackgroundColorButton.BackColor != Options.PreviewBackgroundColor)
+            {
+                Options.PreviewBackgroundColor = PreviewBackgroundColorButton.BackColor;
+                ControlEvents.FirePreviewBackgroundColorChangeEvent();
             }
 
             if (map0Nametext.Text != Options.MapNames[0]
@@ -191,6 +191,22 @@ namespace UoFiddler.Forms
             {
                 Options.OutputPath = textBoxOutputPath.Text;
             }
+
+            bool newHex = radioExportFilenameHex.Checked;
+            bool newPad = checkBoxExportFilenameDecPad.Checked;
+            if (newHex != AppSettings.ExportFilenameInHex || newPad != AppSettings.ExportFilenameDecimalPadded)
+            {
+                AppSettings.ExportFilenameInHex = newHex;
+                AppSettings.ExportFilenameDecimalPadded = newPad;
+                Options.ExportFilenameInHex = newHex;
+                Options.ExportFilenameDecimalPadded = newPad;
+                AppSettings.Save();
+            }
+        }
+
+        private void OnExportFilenameFormatChanged(object sender, EventArgs e)
+        {
+            checkBoxExportFilenameDecPad.Enabled = !radioExportFilenameHex.Checked;
         }
 
         private void OnClickBrowseOutputPath(object sender, EventArgs e)
@@ -269,11 +285,29 @@ namespace UoFiddler.Forms
                 return;
             }
 
-            checkBoxOverrideBackgroundColorFromTile.Checked = false;
             checkboxRemoveTileBorder.Checked = false;
 
-            TileFocusColorComboBox.SelectedItem = Color.DarkRed;
-            TileSelectionColorComboBox.SelectedItem = Color.DodgerBlue;
+            if (AppSettings.DarkMode)
+            {
+                TileFocusColorComboBox.SelectedItem = Color.Red;
+                TileSelectionColorComboBox.SelectedItem = Color.MediumTurquoise;
+                PreviewBackgroundColorButton.BackColor = Color.FromArgb(32, 32, 32);
+            }
+            else
+            {
+                TileFocusColorComboBox.SelectedItem = Color.DarkRed;
+                TileSelectionColorComboBox.SelectedItem = Color.DodgerBlue;
+                PreviewBackgroundColorButton.BackColor = Color.White;
+            }
+        }
+
+        private void PreviewBackgroundColorButton_Click(object sender, EventArgs e)
+        {
+            using var dlg = new ColorDialog { Color = PreviewBackgroundColorButton.BackColor };
+            if (dlg.ShowDialog() == DialogResult.OK)
+            {
+                PreviewBackgroundColorButton.BackColor = dlg.Color;
+            }
         }
 
         private void OnClickClose(object sender, EventArgs e)

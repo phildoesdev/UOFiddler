@@ -6,7 +6,7 @@ using Ultima.Helpers;
 
 namespace Ultima
 {
-    public sealed class FileIndex
+    public sealed class FileIndex : IDisposable
     {
         public IFileAccessor FileAccessor { get; }
 
@@ -19,6 +19,13 @@ namespace Ultima
         }
 
         private readonly string _mulPath;
+
+        /// <summary>
+        /// Absolute path to the .mul or .uop file backing this index, or null
+        /// if no client file was located. Exposed so parallel preloaders can
+        /// open their own per-thread FileStreams (FileShare.Read).
+        /// </summary>
+        public string MulPath => _mulPath;
 
         public FileIndex(string idxFile, string mulFile, int length, int file) : this(idxFile, mulFile, null, length,
             file, ".dat", -1, false)
@@ -40,12 +47,12 @@ namespace Ultima
 
             if (Files.MulPath.Count > 0)
             {
-                idxPath = Files.MulPath[idxFile.ToLower()];
-                _mulPath = Files.MulPath[mulFile.ToLower()];
+                idxPath = Files.MulPath[idxFile];
+                _mulPath = Files.MulPath[mulFile];
 
-                if (!string.IsNullOrEmpty(uopFile) && Files.MulPath.ContainsKey(uopFile.ToLower()))
+                if (!string.IsNullOrEmpty(uopFile) && Files.MulPath.ContainsKey(uopFile))
                 {
-                    uopPath = Files.MulPath[uopFile.ToLower()];
+                    uopPath = Files.MulPath[uopFile];
                 }
 
                 if (string.IsNullOrEmpty(idxPath))
@@ -145,8 +152,8 @@ namespace Ultima
 
             if (Files.MulPath.Count > 0)
             {
-                idxPath = Files.MulPath[idxFile.ToLower()];
-                _mulPath = Files.MulPath[mulFile.ToLower()];
+                idxPath = Files.MulPath[idxFile];
+                _mulPath = Files.MulPath[mulFile];
                 if (string.IsNullOrEmpty(idxPath))
                 {
                     idxPath = null;
@@ -225,7 +232,7 @@ namespace Ultima
 
             IEntry e = FileAccessor.GetEntry(index);
 
-            if (e.Lookup < 0)
+            if (e.Lookup < 0 || (e.Lookup > 0 && e.Length == -1))
             {
                 length = extra = 0;
                 patched = false;
@@ -249,19 +256,15 @@ namespace Ultima
                 return null;
             }
 
-            if ((FileAccessor.Stream?.CanRead != true) || (!FileAccessor.Stream.CanSeek))
-            {
-                FileAccessor.Stream = _mulPath == null ? null : new FileStream(_mulPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            }
-
-            if (FileAccessor.Stream == null)
+            FileStream stream = EnsureOpen();
+            if (stream == null)
             {
                 length = extra = 0;
                 patched = false;
                 return null;
             }
 
-            if (FileAccessor.Stream.Length < e.Lookup)
+            if (stream.Length < e.Lookup)
             {
                 length = extra = 0;
                 patched = false;
@@ -270,19 +273,21 @@ namespace Ultima
 
             patched = false;
 
-            FileAccessor.Stream.Seek(e.Lookup, SeekOrigin.Begin);
-            return FileAccessor.Stream;
+            stream.Seek(e.Lookup, SeekOrigin.Begin);
+            return stream;
         }
 
-        public Stream Seek(int index, ref IEntry entry)
+        public Stream Seek(int index, ref IEntry entry, out bool patched)
         {
             if (FileAccessor is null)
             {
+                patched = false;
                 return null;
             }
 
             if (index < 0 || index >= FileAccessor.IndexLength)
             {
+                patched = false;
                 return null;
             }
 
@@ -290,6 +295,14 @@ namespace Ultima
 
             if (e.Lookup < 0)
             {
+                patched = false;
+                return null;
+            }
+
+            var length = e.Length & 0x7FFFFFFF;
+            if (length < 0)
+            {
+                patched = false;
                 return null;
             }
 
@@ -297,32 +310,74 @@ namespace Ultima
 
             if ((e.Length & (1 << 31)) != 0)
             {
+                patched = true;
                 Verdata.Seek(e.Lookup);
                 return Verdata.Stream;
             }
 
             if (e.Length < 0)
             {
+                patched = false;
                 return null;
             }
 
-            if ((FileAccessor.Stream?.CanRead != true) || (!FileAccessor.Stream.CanSeek))
+            FileStream stream = EnsureOpen();
+            if (stream == null)
             {
-                FileAccessor.Stream = _mulPath == null ? null : new FileStream(_mulPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            }
-
-            if (FileAccessor.Stream == null)
-            {
+                patched = false;
                 return null;
             }
 
-            if (FileAccessor.Stream.Length < e.Lookup)
+            if (stream.Length < e.Lookup)
             {
+                patched = false;
                 return null;
             }
 
-            FileAccessor.Stream.Seek(e.Lookup, SeekOrigin.Begin);
-            return FileAccessor.Stream;
+            patched = false;
+
+            stream.Seek(e.Lookup, SeekOrigin.Begin);
+            return stream;
+        }
+
+        /// <summary>
+        /// Returns the cached FileAccessor.Stream, re-opening it only when
+        /// genuinely required (null or disposed). Replaces the per-call
+        /// CanRead/CanSeek probe that previously re-instantiated the
+        /// FileStream every time a downstream caller had Close()'d it.
+        /// </summary>
+        private FileStream EnsureOpen()
+        {
+            FileStream stream = FileAccessor.Stream;
+            if (stream != null && stream.CanRead && stream.CanSeek)
+            {
+                return stream;
+            }
+
+            if (_mulPath == null)
+            {
+                FileAccessor.Stream = null;
+                return null;
+            }
+
+            stream = new FileStream(_mulPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            FileAccessor.Stream = stream;
+            return stream;
+        }
+
+        /// <summary>
+        /// Releases the underlying .mul / .uop FileStream so the next access
+        /// re-opens fresh. Additive — existing code paths that ignore the
+        /// disposable contract keep working because EnsureOpen handles a
+        /// disposed FileAccessor.Stream gracefully.
+        /// </summary>
+        public void Dispose()
+        {
+            FileAccessor?.Stream?.Dispose();
+            if (FileAccessor != null)
+            {
+                FileAccessor.Stream = null;
+            }
         }
 
         public bool Valid(int index, out int length, out int extra, out bool patched)
@@ -373,12 +428,15 @@ namespace Ultima
                 return false;
             }
 
-            if ((FileAccessor.Stream?.CanRead != true) || (!FileAccessor.Stream.CanSeek))
+            FileStream stream = EnsureOpen();
+            if (stream == null)
             {
-                FileAccessor.Stream = new FileStream(_mulPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                length = extra = 0;
+                patched = false;
+                return false;
             }
 
-            if (FileAccessor.Stream.Length < e.Lookup)
+            if (stream.Length < e.Lookup)
             {
                 length = extra = 0;
                 patched = false;
@@ -391,6 +449,12 @@ namespace Ultima
         }
     }
 
+    public enum CompressionFlag
+    {
+        None = 0,
+        Zlib = 1,
+        Mythic = 3
+    }
 
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -423,7 +487,7 @@ namespace Ultima
             set => Extra = (int)((Extra & 0xFFFF0000) | (uint)value);
         }
 
-        public int Flag { get => 0; set { } } // No compression, means that we have only three first fields
+        public CompressionFlag Flag { get => CompressionFlag.None; set { } } // No compression, means that we have only three first fields
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -454,7 +518,7 @@ namespace Ultima
 
         public int Extra2 { get; set; }
 
-        public int Flag { get; set; }
+        public CompressionFlag Flag { get; set; }
     }
 
     // Dumb access to all possible fields of entries
@@ -466,8 +530,7 @@ namespace Ultima
         public int DecompressedLength { get; set; }
         public int Extra1 { get; set; }
         public int Extra2 { get; set; }
-        public int Flag { get; set; }
-        //public IEntry Invalid { get; }
+        public CompressionFlag Flag { get; set; }
     }
 
     public interface IFileAccessor
@@ -501,11 +564,10 @@ namespace Ultima
                 Stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
                 var count = (int)(index.Length / 12);
                 IdxLength = index.Length;
-                GCHandle gc = GCHandle.Alloc(Index, GCHandleType.Pinned);
-                var buffer = new byte[index.Length];
-                index.ReadExactly(buffer, 0, (int)index.Length);
-                Marshal.Copy(buffer, 0, gc.AddrOfPinnedObject(), (int)Math.Min(IdxLength, Index.Length * 12));
-                gc.Free();
+
+                int readLen = (int)Math.Min(IdxLength, (long)Index.Length * 12);
+                index.ReadExactly(MemoryMarshal.AsBytes(Index.AsSpan()).Slice(0, readLen));
+
                 for (int i = count; i < Index.Length; ++i)
                 {
                     Index[i].Lookup = -1;
@@ -523,11 +585,7 @@ namespace Ultima
                 var count = (int)(index.Length / 12);
                 IdxLength = index.Length;
                 Index = new Entry3D[count];
-                GCHandle gc = GCHandle.Alloc(Index, GCHandleType.Pinned);
-                var buffer = new byte[index.Length];
-                index.ReadExactly(buffer, 0, (int)index.Length);
-                Marshal.Copy(buffer, 0, gc.AddrOfPinnedObject(), (int)index.Length);
-                gc.Free();
+                index.ReadExactly(MemoryMarshal.AsBytes(Index.AsSpan()));
             }
         }
 
@@ -579,7 +637,9 @@ namespace Ultima
             var fileInfo = new FileInfo(path);
             string uopPattern = fileInfo.Name.Replace(fileInfo.Extension, "").ToLowerInvariant();
 
-            using (var br = new BinaryReader(Stream))
+            // leaveOpen: this ctor caches Stream on the instance for later
+            // FileIndex.Seek calls; disposing the BinaryReader must not close it.
+            using (var br = new BinaryReader(Stream, System.Text.Encoding.UTF8, leaveOpen: true))
             {
                 br.BaseStream.Seek(0, SeekOrigin.Begin);
 
@@ -658,7 +718,7 @@ namespace Ultima
                             Index[idx].Lookup = (int)(offset + 8);
                             Index[idx].Length = compressedLength - 8;
                             Index[idx].DecompressedLength = decompressedLength;
-                            Index[idx].Flag = flag;
+                            Index[idx].Flag = (CompressionFlag)flag;
                             Index[idx].Extra = extra1 << 16 | extra2;
                             Index[idx].Extra1 = extra1;
                             Index[idx].Extra2 = extra2;
@@ -670,7 +730,7 @@ namespace Ultima
                             Index[idx].Lookup = (int)(offset);
                             Index[idx].Length = compressedLength;
                             Index[idx].DecompressedLength = decompressedLength;
-                            Index[idx].Flag = flag;
+                            Index[idx].Flag = (CompressionFlag)flag;
                             Index[idx].Extra = 0x0FFFFFFF; // we cant read it right now, but -1 and 0 makes this entry invalid
                         }
                     }

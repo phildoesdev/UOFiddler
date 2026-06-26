@@ -130,9 +130,8 @@ namespace Ultima
             var stringBuffer = new byte[32];
             var buffer = new byte[length];
 
-            stream.Read(stringBuffer, 0, 32);
-            stream.Read(buffer, 0, length);
-            stream.Close();
+            stream.ReadExactly(stringBuffer, 0, 32);
+            stream.ReadExactly(buffer, 0, length);
 
             var resultBuffer = new byte[buffer.Length + (waveHeader.Length << 2)];
 
@@ -233,8 +232,7 @@ namespace Ultima
             }
 
             var stringBuffer = new byte[32];
-            stream.Read(stringBuffer, 0, 32);
-            stream.Close();
+            stream.ReadExactly(stringBuffer, 0, 32);
             name = Encoding.ASCII.GetString(stringBuffer); // seems that the null terminator's not being properly recognized :/
             if (name.IndexOf('\0') > 0)
             {
@@ -286,7 +284,6 @@ namespace Ultima
                     return 0;
                 }
 
-                stream.Close();
                 length -= 32; // mulheaderlength
                 len = length;
             }
@@ -303,7 +300,7 @@ namespace Ultima
             {
                 byte[] resultBuffer = new byte[wav.Length];
                 wav.Seek(0, SeekOrigin.Begin);
-                wav.Read(resultBuffer, 0, (int)wav.Length);
+                wav.ReadExactly(resultBuffer, 0, (int)wav.Length);
 
                 resultBuffer = CheckAndFixWave(resultBuffer);
 
@@ -376,7 +373,7 @@ namespace Ultima
                         {
                             m.Seek(headerLength, SeekOrigin.Begin);
                             var resultBuffer = new byte[m.Length - headerLength];
-                            m.Read(resultBuffer, 0, (int)m.Length - headerLength);
+                            m.ReadExactly(resultBuffer, 0, (int)m.Length - headerLength);
                             binmul.Write(resultBuffer);
                         }
 
