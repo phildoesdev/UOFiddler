@@ -21,7 +21,7 @@ using UoFiddler.Controls.Plugin.Interfaces;
 using UoFiddler.Plugin.ExamplePlugin.Forms;
 using UoFiddler.Plugin.ExamplePlugin.UserControls;
 
-namespace UoFiddler.Plugin.ExamplePlugin
+namespace UoFiddler.Plugin.ExamplePlugin    
 {
     public class ExamplePluginBase : PluginBase
     {

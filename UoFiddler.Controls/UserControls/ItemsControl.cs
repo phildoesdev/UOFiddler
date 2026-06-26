@@ -729,7 +729,7 @@ namespace UoFiddler.Controls.UserControls
             }
 
             string fileExtension = Utils.GetFileExtensionFor(imageFormat);
-            string fileName = Path.Combine(Options.OutputPath, $"Item 0x{index:X4}.{fileExtension}");
+            string fileName = Path.Combine(Options.OutputPath, $"0x{index:X4}.{fileExtension}");
 
             using (Bitmap bit = new Bitmap(Art.GetStatic(index)))
             {
@@ -804,7 +804,7 @@ namespace UoFiddler.Controls.UserControls
                             continue;
                         }
 
-                        string fileName = Path.Combine(dialog.SelectedPath, $"Item 0x{index:X4}.{fileExtension}");
+                        string fileName = Path.Combine(dialog.SelectedPath, $"0x{index:X4}.{fileExtension}");
                         using (Bitmap bit = new Bitmap(Art.GetStatic(index)))
                         {
                             bit.Save(fileName, imageFormat);

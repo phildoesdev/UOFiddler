@@ -605,6 +605,7 @@ namespace UoFiddler.Controls.UserControls
             }
 
             Bitmap bmp = MainPictureBox.Frames[(int)e.Item.Tag].Bitmap;
+            if (bmp is null) return;
             int width = bmp.Width;
             int height = bmp.Height;
 

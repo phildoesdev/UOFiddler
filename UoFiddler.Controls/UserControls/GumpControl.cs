@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -575,7 +576,9 @@ namespace UoFiddler.Controls.UserControls
                         continue;
                     }
 
-                    string fileName = Path.Combine(dialog.SelectedPath, $"Gump {index}.{fileExtension}");
+                    string fileName = Path.Combine(dialog.SelectedPath, $"{index}.{fileExtension}");
+                    if (Gumps.GetGump(index) == null) continue;
+
                     using (Bitmap bit = new Bitmap(Gumps.GetGump(index)))
                     {
                         bit.Save(fileName, imageFormat);

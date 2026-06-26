@@ -244,7 +244,7 @@ namespace UoFiddler.Controls.Forms
             }
 
             string fileExtension = Utils.GetFileExtensionFor(imageFormat);
-            string fileName = Path.Combine(Options.OutputPath, $"Item 0x{_index:X}.{fileExtension}");
+            string fileName = Path.Combine(Options.OutputPath, $"0x{_index:X}.{fileExtension}");
 
             using (Bitmap bit = new Bitmap(Art.GetStatic(_index).Width, Art.GetStatic(_index).Height))
             {

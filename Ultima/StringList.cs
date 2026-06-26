@@ -79,7 +79,7 @@ namespace Ultima
                         {
                             _buffer = new byte[(length + 1023) & ~1023];
                         }
-
+                        if (length < 0) continue;
                         reader.Read(_buffer, 0, length);
                         string text = Encoding.UTF8.GetString(_buffer, 0, length);
 
